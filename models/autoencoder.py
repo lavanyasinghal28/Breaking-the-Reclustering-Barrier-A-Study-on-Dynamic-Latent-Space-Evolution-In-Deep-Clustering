@@ -1,10 +1,10 @@
-import torch
 import torch.nn as nn
+
 
 class SimpleAutoencoder(nn.Module):
     def __init__(self, input_dim=784, embedding_dim=10):
         super(SimpleAutoencoder, self).__init__()
-        
+
         # Encoder: 784 -> 256 -> 128 -> 10
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, 256),
@@ -13,7 +13,7 @@ class SimpleAutoencoder(nn.Module):
             nn.ReLU(),
             nn.Linear(128, embedding_dim)
         )
-        
+
         # Decoder: 10 -> 128 -> 256 -> 784
         self.decoder = nn.Sequential(
             nn.Linear(embedding_dim, 128),
