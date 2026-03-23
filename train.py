@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 from dataset import get_mnist_dataloaders
 from autoencoder import SimpleAutoencoder
-from dcn import DCN, train_dcn_with_brb
+from dec import DEC, train_dec_with_brb
 
 def plot_results(history, reset_interval, epochs):
     """
@@ -59,13 +59,13 @@ def main():
     print("Loading MNIST data...")
     train_loader, test_loader = get_mnist_dataloaders(batch_size=BATCH_SIZE)
 
-    # 4. Initialize the Neural Network and the DCN engine
+    # 4. Initialize the Neural Network and the DEC engine
     autoencoder = SimpleAutoencoder(input_dim=784, embedding_dim=10).to(device)
-    dcn_model = DCN(autoencoder, n_clusters=10, embedding_dim=10).to(device)
+    dec_model = DEC(autoencoder, n_clusters=10, embedding_dim=10).to(device)
 
     # 5. Start the Training!
-    history = train_dcn_with_brb(
-        dcn_model=dcn_model,
+    history = train_dec_with_brb(
+        dec_model=dec_model,
         train_loader=train_loader,
         test_loader=test_loader,
         epochs=EPOCHS,
@@ -74,7 +74,6 @@ def main():
         device=device
     )
 
-    # 6. Draw the visual proof
     plot_results(history, RESET_INTERVAL, EPOCHS)
 
 if __name__ == "__main__":
