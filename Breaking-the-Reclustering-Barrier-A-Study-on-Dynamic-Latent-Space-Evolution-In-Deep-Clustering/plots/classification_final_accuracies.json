@@ -1,0 +1,10 @@
+{
+  "Non-Geometric (plain)": {
+    "final_accuracy": 0.9814,
+    "best_accuracy": 0.9819
+  },
+  "Non-Geometric + BRB": {
+    "final_accuracy": 0.9791,
+    "best_accuracy": 0.9848
+  }
+}

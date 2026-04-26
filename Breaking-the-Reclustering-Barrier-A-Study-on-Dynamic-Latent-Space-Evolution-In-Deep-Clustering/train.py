@@ -10,13 +10,15 @@ from config import (
     N_CLUSTERS, PLOT_DIR,
 )
 from dataset import get_mnist_dataloaders
-from models import SimpleAutoencoder, DCN
+from models import SimpleAutoencoder, DCN, NonGeometricClassifier
 from training import (
     pretrain_autoencoder,
     train_dcn_plain,
     train_dcn_with_reclustering,
     train_dcn_with_brb,
     train_dcn_with_reset_method,
+    train_non_geometric_classifier_plain,
+    train_non_geometric_classifier_with_brb,
 )
 from plotting import (
     plot_single_run,
@@ -33,6 +35,8 @@ from plotting import (
     plot_embedding_panels,
     plot_nmi_curve,
     plot_embedding_and_nmi,
+    plot_non_geometric_single_run,
+    plot_non_geometric_comparison,
 )
 
 
@@ -59,6 +63,18 @@ def main():
         ae.load_state_dict(copy.deepcopy(pretrained_state))
         return DCN(ae, n_clusters=N_CLUSTERS,
                    embedding_dim=EMBEDDING_DIM).to(device)
+
+    def _fresh_non_geometric_classifier():
+        """Clone AE from pretrained checkpoint and wrap in non-geometric classifier."""
+        ae = SimpleAutoencoder(input_dim=INPUT_DIM,
+                               embedding_dim=EMBEDDING_DIM).to(device)
+        ae.load_state_dict(copy.deepcopy(pretrained_state))
+        return NonGeometricClassifier(
+            autoencoder=ae,
+            embedding_dim=EMBEDDING_DIM,
+            hidden_dim=64,
+            n_classes=N_CLUSTERS,
+        ).to(device)
 
     results = {}
 
@@ -125,6 +141,37 @@ def main():
     )
     results['DCN + FWR'] = hist_fwr
     plot_single_run(hist_fwr, "DCN + FWR", "dcn_fwr.png", interval=RESET_INTERVAL)
+
+    # ── Experiment 7: Non-geometric classification (plain) ───────────────
+    classification_results = {}
+
+    hist_non_geo_plain = train_non_geometric_classifier_plain(
+        _fresh_non_geometric_classifier(), train_loader, test_loader,
+        epochs=exp_cluster_epochs, device=device,
+    )
+    classification_results['Non-Geometric (plain)'] = hist_non_geo_plain
+    plot_non_geometric_single_run(
+        hist_non_geo_plain,
+        "Non-Geometric Classifier (plain)",
+        "non_geometric_plain.png",
+    )
+
+    # ── Experiment 8: Non-geometric classification + BRB ─────────────────
+    hist_non_geo_brb = train_non_geometric_classifier_with_brb(
+        _fresh_non_geometric_classifier(), train_loader, test_loader,
+        epochs=exp_cluster_epochs,
+        reset_interval=RESET_INTERVAL,
+        alpha=ALPHA,
+        device=device,
+    )
+    classification_results['Non-Geometric + BRB'] = hist_non_geo_brb
+    plot_non_geometric_single_run(
+        hist_non_geo_brb,
+        "Non-Geometric Classifier + BRB",
+        "non_geometric_brb.png",
+        interval=RESET_INTERVAL,
+    )
+    plot_non_geometric_comparison(classification_results, RESET_INTERVAL)
 
     # ── Main comparison plots ────────────────────────────────────────────
     plot_comparison(results, RESET_INTERVAL)
@@ -202,6 +249,25 @@ def main():
         json.dump(final_accuracies, f, indent=2)
     print(f"  Final accuracy summary saved -> {final_acc_path}")
 
+    classification_metrics_path = os.path.join(PLOT_DIR, "classification_metrics.json")
+    with open(classification_metrics_path, 'w') as f:
+        json.dump(classification_results, f, indent=2)
+    print(f"  Classification metrics saved -> {classification_metrics_path}")
+
+    classification_final_accuracies = {
+        label: {
+            'final_accuracy': float(hist['accuracy'][-1]),
+            'best_accuracy': float(max(hist['accuracy'])),
+        }
+        for label, hist in classification_results.items()
+    }
+    classification_final_acc_path = os.path.join(
+        PLOT_DIR, "classification_final_accuracies.json"
+    )
+    with open(classification_final_acc_path, 'w') as f:
+        json.dump(classification_final_accuracies, f, indent=2)
+    print(f"  Classification final accuracy saved -> {classification_final_acc_path}")
+
     # ── Summary ──────────────────────────────────────────────────────────
     print(f"\n{'='*60}")
     print("  FINAL RESULTS SUMMARY")
@@ -214,6 +280,19 @@ def main():
               f"| Final Acc: {final_acc:6.2f}%  "
               f"| Final Loss: {final_loss:.4f}")
     print(f"{'='*60}")
+
+    print(f"\n{'='*60}")
+    print("  NON-GEOMETRIC CLASSIFICATION SUMMARY")
+    print(f"{'='*60}")
+    for label, hist in classification_results.items():
+        best_acc = max(hist['accuracy']) * 100
+        final_acc = hist['accuracy'][-1] * 100
+        final_loss = hist['loss'][-1]
+        print(f"  {label:25s} | Best Acc: {best_acc:6.2f}%  "
+              f"| Final Acc: {final_acc:6.2f}%  "
+              f"| Final Loss: {final_loss:.4f}")
+    print(f"{'='*60}")
+
     print(f"\n  All plots saved in '{PLOT_DIR}/' directory.")
 
 

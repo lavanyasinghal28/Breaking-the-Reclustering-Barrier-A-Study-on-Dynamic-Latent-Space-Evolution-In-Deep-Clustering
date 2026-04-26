@@ -16,3 +16,7 @@ from .brb_analysis import (
     plot_nmi_curve,
     plot_embedding_and_nmi,
 )
+from .non_geometric import (
+    plot_non_geometric_single_run,
+    plot_non_geometric_comparison,
+)
